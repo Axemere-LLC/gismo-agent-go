@@ -17,13 +17,21 @@ jobs:
     env:
       HAS_SIBLING_TOKEN: ${{ secrets.SIBLING_REPO_TOKEN != '' }}
     steps:
+      # actions/checkout refuses any path outside $GITHUB_WORKSPACE (no
+      # "../"), so the main repo and its siblings are all checked out as
+      # subdirectories of the workspace instead — gismo-agent-go/,
+      # gismo-sdk-go/, gismo-contracts/ — which preserves the "../sibling"
+      # relative paths that go.mod's replace directives expect.
       - uses: actions/checkout@v4
+        with:
+          path: gismo-agent-go
 
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26"
 
       - name: Dependency-pinning self-check
+        working-directory: gismo-agent-go
         run: |
           test -f go.sum || { echo "go.sum is missing — dependencies are not locked" >&2; exit 1; }
           echo "go.sum present — dependencies locked"
@@ -41,7 +49,7 @@ jobs:
         with:
           repository: Axemere-LLC/gismo-sdk-go
           token: ${{ secrets.SIBLING_REPO_TOKEN }}
-          path: ../gismo-sdk-go
+          path: gismo-sdk-go
 
       - name: Checkout gismo-contracts (sibling)
         if: ${{ env.HAS_SIBLING_TOKEN == 'true' }}
@@ -49,10 +57,11 @@ jobs:
         with:
           repository: Axemere-LLC/gismo-contracts
           token: ${{ secrets.SIBLING_REPO_TOKEN }}
-          path: ../gismo-contracts
+          path: gismo-contracts
 
       - name: Build, vet, test (incl. conformance harness)
         if: ${{ env.HAS_SIBLING_TOKEN == 'true' }}
+        working-directory: gismo-agent-go
         run: |
           go build ./...
           go vet ./...
