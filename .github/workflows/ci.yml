@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Dependency-pinning self-check
+        run: |
+          test -f go.sum || { echo "go.sum is missing — dependencies are not locked" >&2; exit 1; }
+          echo "go.sum present — dependencies locked"
+
+      # The template's go.mod replaces github.com/Axemere-LLC/{gismo-sdk-go,
+      # gismo-contracts} with local sibling paths, and gismo-sdk-go's own
+      # go.mod in turn replaces gismo-contracts the same way — so both
+      # siblings must be checked out under the same parent workspace dir.
+      # Requires read access to both private repos; see
+      # gismo-platform/docs/phase-7-supply-chain.md for provisioning
+      # SIBLING_REPO_TOKEN. Skips (not fails) until that secret exists.
+      - name: Checkout gismo-sdk-go (sibling)
+        if: ${{ secrets.SIBLING_REPO_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: Axemere-LLC/gismo-sdk-go
+          token: ${{ secrets.SIBLING_REPO_TOKEN }}
+          path: ../gismo-sdk-go
+
+      - name: Checkout gismo-contracts (sibling)
+        if: ${{ secrets.SIBLING_REPO_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: Axemere-LLC/gismo-contracts
+          token: ${{ secrets.SIBLING_REPO_TOKEN }}
+          path: ../gismo-contracts
+
+      - name: Build, vet, test (incl. conformance harness)
+        if: ${{ secrets.SIBLING_REPO_TOKEN != '' }}
+        run: |
+          go build ./...
+          go vet ./...
+          go test ./...
