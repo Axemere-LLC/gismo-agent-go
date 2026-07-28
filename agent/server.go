@@ -39,17 +39,17 @@ func NewServer(strategy Strategy) *mcp.Server {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_state",
 		Description: "Receive the current battlefield view for a match; echoed back unchanged and cached for the next submit_orders call.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in mcpsdk.StateView) (*mcp.CallToolResult, mcpsdk.StateView, error) {
-		cache.store(in.MatchId, in)
+	}, func(_ context.Context, req *mcp.CallToolRequest, in mcpsdk.StateView) (*mcp.CallToolResult, mcpsdk.StateView, error) {
+		cache.store(req.Session, in.MatchId, in)
 		return nil, in, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "submit_orders",
 		Description: "Return this agent's orders for the given match and impulse, decided from the last cached get_state view.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in mcpsdk.SubmitOrdersRequest) (*mcp.CallToolResult, mcpsdk.SubmitOrdersResponse, error) {
+	}, func(_ context.Context, req *mcp.CallToolRequest, in mcpsdk.SubmitOrdersRequest) (*mcp.CallToolResult, mcpsdk.SubmitOrdersResponse, error) {
 		orders := []mcpsdk.TankOrder{}
-		if view, ok := cache.load(in.MatchId); ok {
+		if view, ok := cache.load(req.Session, in.MatchId); ok {
 			if decided := strategy.Decide(view); decided != nil {
 				orders = decided
 			}

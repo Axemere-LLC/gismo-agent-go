@@ -124,6 +124,37 @@ func TestNewServer_SubmitOrdersIsScopedByMatchID(t *testing.T) {
 	}
 }
 
+// TestNewServer_SelfPlaySessionsDoNotShareCachedView is the end-to-end
+// regression test for the self-play collision bug: when the same agent
+// process serves both sides of a match (identical matchID, two distinct
+// MCP sessions — one per side, exactly as the referee's two Dial calls
+// produce), each session's submit_orders must be decided from its own
+// get_state view, never the other session's.
+func TestNewServer_SelfPlaySessionsDoNotShareCachedView(t *testing.T) {
+	ctx := context.Background()
+	server := NewServer(HoldStrategy{})
+
+	sideA := connect(t, ctx, server)
+	sideB := connect(t, ctx, server)
+
+	viewA := mcpsdk.StateView{MatchId: "m1", Impulse: 1, OwnTanks: []mcpsdk.TankView{{Id: 1, Heading: 0, Speed: 1}}}
+	viewB := mcpsdk.StateView{MatchId: "m1", Impulse: 1, OwnTanks: []mcpsdk.TankView{{Id: 8, Heading: 0, Speed: 1}}}
+	callTool[mcpsdk.StateView](t, ctx, sideA, "get_state", viewA)
+	callTool[mcpsdk.StateView](t, ctx, sideB, "get_state", viewB)
+
+	gotA := callTool[mcpsdk.SubmitOrdersResponse](t, ctx, sideA, "submit_orders", mcpsdk.SubmitOrdersRequest{MatchId: "m1", Impulse: 1})
+	gotB := callTool[mcpsdk.SubmitOrdersResponse](t, ctx, sideB, "submit_orders", mcpsdk.SubmitOrdersRequest{MatchId: "m1", Impulse: 1})
+
+	wantA := HoldOrders(viewA.OwnTanks)
+	wantB := HoldOrders(viewB.OwnTanks)
+	if len(gotA.Orders) != 1 || gotA.Orders[0].TankId != wantA[0].TankId {
+		t.Errorf("side A submit_orders = %+v, want orders for tank %d (its own), got tank %d", gotA.Orders, wantA[0].TankId, gotA.Orders[0].TankId)
+	}
+	if len(gotB.Orders) != 1 || gotB.Orders[0].TankId != wantB[0].TankId {
+		t.Errorf("side B submit_orders = %+v, want orders for tank %d (its own), got tank %d", gotB.Orders, wantB[0].TankId, gotB.Orders[0].TankId)
+	}
+}
+
 func TestNewServer_SurrenderReportsFalse(t *testing.T) {
 	ctx := context.Background()
 	session := connect(t, ctx, NewServer(HoldStrategy{}))
