@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	addr := flag.String("addr", ":8082", "address to listen on for the agent's MCP endpoint")
+	addr := flag.String("addr", agent.DefaultAddr(":8082"), "address to listen on for the agent's MCP endpoint")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "%s runs the gismo-agent-go heuristic reference agent's MCP server.\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Usage:\n")

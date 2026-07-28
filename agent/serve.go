@@ -4,9 +4,20 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// DefaultAddr returns ":"+$PORT when PORT is set (Cloud Run and similar
+// platforms inject it and expect the process to listen there), or fallback
+// otherwise. Intended as a flag.String default so -addr can still override it.
+func DefaultAddr(fallback string) string {
+	if port := os.Getenv("PORT"); port != "" {
+		return ":" + port
+	}
+	return fallback
+}
 
 // Serve runs an MCP server built by NewServer(strategy) as an HTTP
 // (streamable) endpoint listening on addr, blocking until ctx is canceled
