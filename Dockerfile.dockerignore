@@ -1,0 +1,15 @@
+# Named Dockerfile.dockerignore (not .dockerignore) so Docker picks this up
+# from next to the Dockerfile it applies to, rather than looking for a
+# .dockerignore at the build context root — which is the parent workspace
+# directory shared by every sibling repo, not one we own or want to touch.
+# Patterns below are evaluated relative to that context root regardless.
+*
+!gismo-agent-go
+!gismo-agent-go/**
+!gismo-sdk-go
+!gismo-sdk-go/**
+!gismo-contracts
+!gismo-contracts/**
+**/.git
+**/.github
+**/node_modules
