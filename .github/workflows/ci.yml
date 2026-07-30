@@ -9,59 +9,38 @@ on:
 permissions:
   contents: read
 
+env:
+  # gismo-sdk-go and gismo-contracts are private modules; GOPRIVATE skips
+  # the public checksum/proxy path and go fetches them directly from GitHub
+  # instead, authenticated via the git credential rewrite below.
+  GOPRIVATE: github.com/Axemere-LLC
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    # secrets context isn't available in steps.*.if — hoist the presence
-    # check into env, which is.
-    env:
-      HAS_SIBLING_TOKEN: ${{ secrets.SIBLING_REPO_TOKEN != '' }}
     steps:
-      # actions/checkout refuses any path outside $GITHUB_WORKSPACE (no
-      # "../"), so the main repo and its siblings are all checked out as
-      # subdirectories of the workspace instead — gismo-agent-go/,
-      # gismo-sdk-go/, gismo-contracts/ — which preserves the "../sibling"
-      # relative paths that go.mod's replace directives expect.
       - uses: actions/checkout@v4
-        with:
-          path: gismo-agent-go
 
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26"
 
+      # The default GITHUB_TOKEN is scoped to this repo only and can't fetch
+      # other private Axemere-LLC repos, so `go build` needs a PAT with read
+      # access across the org — SIBLING_REPO_TOKEN, provisioned per
+      # gismo-platform/docs/phase-7-supply-chain.md. Unlike the old
+      # replace-directive setup this is no longer optional: gismo-sdk-go and
+      # gismo-contracts are real module dependencies now, not local sibling
+      # checkouts.
+      - name: Configure git for private module fetch
+        run: git config --global url."https://x-access-token:${{ secrets.SIBLING_REPO_TOKEN }}@github.com/Axemere-LLC/".insteadOf "https://github.com/Axemere-LLC/"
+
       - name: Dependency-pinning self-check
-        working-directory: gismo-agent-go
         run: |
           test -f go.sum || { echo "go.sum is missing — dependencies are not locked" >&2; exit 1; }
           echo "go.sum present — dependencies locked"
 
-      # The template's go.mod replaces github.com/Axemere-LLC/{gismo-sdk-go,
-      # gismo-contracts} with local sibling paths, and gismo-sdk-go's own
-      # go.mod in turn replaces gismo-contracts the same way — so both
-      # siblings must be checked out under the same parent workspace dir.
-      # Requires read access to both private repos; see
-      # gismo-platform/docs/phase-7-supply-chain.md for provisioning
-      # SIBLING_REPO_TOKEN. Skips (not fails) until that secret exists.
-      - name: Checkout gismo-sdk-go (sibling)
-        if: ${{ env.HAS_SIBLING_TOKEN == 'true' }}
-        uses: actions/checkout@v4
-        with:
-          repository: Axemere-LLC/gismo-sdk-go
-          token: ${{ secrets.SIBLING_REPO_TOKEN }}
-          path: gismo-sdk-go
-
-      - name: Checkout gismo-contracts (sibling)
-        if: ${{ env.HAS_SIBLING_TOKEN == 'true' }}
-        uses: actions/checkout@v4
-        with:
-          repository: Axemere-LLC/gismo-contracts
-          token: ${{ secrets.SIBLING_REPO_TOKEN }}
-          path: gismo-contracts
-
       - name: Build, vet, test (incl. conformance harness)
-        if: ${{ env.HAS_SIBLING_TOKEN == 'true' }}
-        working-directory: gismo-agent-go
         run: |
           go build ./...
           go vet ./...
