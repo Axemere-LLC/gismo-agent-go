@@ -9,12 +9,6 @@ on:
 permissions:
   contents: read
 
-env:
-  # gismo-sdk-go and gismo-contracts are private modules; GOPRIVATE skips
-  # the public checksum/proxy path and go fetches them directly from GitHub
-  # instead, authenticated via the git credential rewrite below.
-  GOPRIVATE: github.com/Axemere-LLC
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -25,16 +19,8 @@ jobs:
         with:
           go-version: "1.26"
 
-      # The default GITHUB_TOKEN is scoped to this repo only and can't fetch
-      # other private Axemere-LLC repos, so `go build` needs a PAT with read
-      # access across the org — SIBLING_REPO_TOKEN, provisioned per
-      # gismo-platform/docs/phase-7-supply-chain.md. Unlike the old
-      # replace-directive setup this is no longer optional: gismo-sdk-go and
-      # gismo-contracts are real module dependencies now, not local sibling
-      # checkouts.
-      - name: Configure git for private module fetch
-        run: git config --global url."https://x-access-token:${{ secrets.SIBLING_REPO_TOKEN }}@github.com/Axemere-LLC/".insteadOf "https://github.com/Axemere-LLC/"
-
+      # gismo-sdk-go and gismo-contracts are public modules, resolved from
+      # the public Go module proxy — no auth needed.
       - name: Dependency-pinning self-check
         run: |
           test -f go.sum || { echo "go.sum is missing — dependencies are not locked" >&2; exit 1; }
