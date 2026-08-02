@@ -3,8 +3,8 @@ module github.com/Axemere-LLC/gismo-agent-go
 go 1.26.5
 
 require (
-	github.com/Axemere-LLC/gismo-contracts v0.0.0-20260723162612-a6b234eaf245
-	github.com/Axemere-LLC/gismo-sdk-go v0.0.0-20260730234542-05dca3c5beff
+	github.com/Axemere-LLC/gismo-contracts v1.0.0
+	github.com/Axemere-LLC/gismo-sdk-go v1.0.1
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 )
 

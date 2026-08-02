@@ -1,7 +1,7 @@
-github.com/Axemere-LLC/gismo-contracts v0.0.0-20260723162612-a6b234eaf245 h1:uGwVnYvbhVn+pp6/2M3/09gjkbXshgmI3HSWwgnF9X8=
-github.com/Axemere-LLC/gismo-contracts v0.0.0-20260723162612-a6b234eaf245/go.mod h1:TjFz3H+IBJ0cHPJnUm/CoYCrGVM5+DeMv7yUjaX1r+I=
-github.com/Axemere-LLC/gismo-sdk-go v0.0.0-20260730234542-05dca3c5beff h1:rdf9CAuoaikLnrNcTdFlXrHrxYTczQpjC4bcIZFZvUQ=
-github.com/Axemere-LLC/gismo-sdk-go v0.0.0-20260730234542-05dca3c5beff/go.mod h1:6g51GPcvVsootGPt2nsCouKNHdPD70hRCtLpBsZrObc=
+github.com/Axemere-LLC/gismo-contracts v1.0.0 h1:W7aCvaFFVJu2ijfohoQxj7marP59Ag9pOaGJD6ZOdIw=
+github.com/Axemere-LLC/gismo-contracts v1.0.0/go.mod h1:TjFz3H+IBJ0cHPJnUm/CoYCrGVM5+DeMv7yUjaX1r+I=
+github.com/Axemere-LLC/gismo-sdk-go v1.0.1 h1:WsfPW7o52xsp1glfrCxL+FKEaHQtXEqyUHoA8/5rJuc=
+github.com/Axemere-LLC/gismo-sdk-go v1.0.1/go.mod h1:DB0ZxkOGdWDGXSQLnOFhX7CeMkSJ2RCUIGh9MbH2q5s=
 github.com/golang-jwt/jwt/v5 v5.3.1 h1:kYf81DTWFe7t+1VvL7eS+jKFVWaUnK9cB1qbwn63YCY=
 github.com/golang-jwt/jwt/v5 v5.3.1/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
