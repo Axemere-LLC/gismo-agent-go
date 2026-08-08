@@ -28,9 +28,17 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	handler := agent.NewHandler(heuristic.Strategy{})
+	if key := os.Getenv("MCP_OUTBOUND_KEY"); key != "" {
+		handler = agent.BearerAuth(key, handler)
+		log.Print("MCP_OUTBOUND_KEY set: requiring a matching Authorization: Bearer header")
+	} else {
+		log.Print("MCP_OUTBOUND_KEY not set: endpoint is unauthenticated")
+	}
+
 	log.Printf("heuristic reference agent listening on %s", *addr)
 
-	if err := agent.Serve(ctx, *addr, heuristic.Strategy{}); err != nil {
+	if err := agent.ServeHandler(ctx, *addr, handler); err != nil {
 		log.Fatalf("serve: %v", err)
 	}
 }
