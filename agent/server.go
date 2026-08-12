@@ -24,17 +24,44 @@ const Name = "gismo-agent-go"
 // agent-version registered with the platform.
 const Version = "0.1.0"
 
+// config holds the settings an Option can override.
+type config struct {
+	version string
+}
+
+// Option customizes the server built by NewServer (and, through them,
+// NewHandler and Serve).
+type Option func(*config)
+
+// WithVersion overrides the version this agent reports in serverInfo during
+// the MCP initialize handshake. Set it to the version_label the platform
+// assigned your registered agent (e.g. "v2") so the referee can tell which
+// revision played a match. An empty version is ignored, keeping the template
+// default.
+func WithVersion(version string) Option {
+	return func(cfg *config) {
+		if version != "" {
+			cfg.version = version
+		}
+	}
+}
+
 // NewServer builds an MCP server implementing get_state, submit_orders, and
 // surrender, deciding submit_orders' response by calling strategy.Decide
 // against the most recently cached get_state view for that match. A nil
 // strategy defaults to HoldStrategy.
-func NewServer(strategy Strategy) *mcp.Server {
+func NewServer(strategy Strategy, opts ...Option) *mcp.Server {
 	if strategy == nil {
 		strategy = HoldStrategy{}
 	}
 	cache := newStateCache()
 
-	server := mcp.NewServer(&mcp.Implementation{Name: Name, Version: Version}, nil)
+	cfg := config{version: Version}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	server := mcp.NewServer(&mcp.Implementation{Name: Name, Version: cfg.version}, nil)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_state",

@@ -21,9 +21,10 @@ func DefaultAddr(fallback string) string {
 
 // NewHandler builds the MCP HTTP handler for strategy, without starting a
 // server — for callers that need to wrap it (e.g. with BearerAuth) before
-// serving it themselves. Serve is the same handler with no wrapping.
-func NewHandler(strategy Strategy) http.Handler {
-	server := NewServer(strategy)
+// serving it themselves. Serve is the same handler with no wrapping. Any
+// opts are passed through to NewServer.
+func NewHandler(strategy Strategy, opts ...Option) http.Handler {
+	server := NewServer(strategy, opts...)
 	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return server
 	}, nil)
@@ -34,9 +35,10 @@ func NewHandler(strategy Strategy) http.Handler {
 // or the listener fails. This is the transport game-and-protocol.md
 // describes an agent exposing to the referee over TLS in production; addr
 // is plaintext here — terminate TLS in front of this process (e.g. a load
-// balancer or reverse proxy) rather than inside it.
-func Serve(ctx context.Context, addr string, strategy Strategy) error {
-	return ServeHandler(ctx, addr, NewHandler(strategy))
+// balancer or reverse proxy) rather than inside it. Any opts are passed
+// through to NewServer.
+func Serve(ctx context.Context, addr string, strategy Strategy, opts ...Option) error {
+	return ServeHandler(ctx, addr, NewHandler(strategy, opts...))
 }
 
 // ServeHandler runs handler as an HTTP server listening on addr, blocking

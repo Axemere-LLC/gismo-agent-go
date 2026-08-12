@@ -166,6 +166,38 @@ func TestNewServer_SurrenderReportsFalse(t *testing.T) {
 	}
 }
 
+// TestNewServer_ReportedVersion covers the serverInfo.version an agent
+// reports during the initialize handshake: the template default unless the
+// competitor overrides it with the version_label the platform assigned their
+// registered agent.
+func TestNewServer_ReportedVersion(t *testing.T) {
+	tests := []struct {
+		name string
+		opts []Option
+		want string
+	}{
+		{name: "no options reports the template version", want: Version},
+		{name: "WithVersion overrides it", opts: []Option{WithVersion("v2")}, want: "v2"},
+		{name: "empty WithVersion keeps the default", opts: []Option{WithVersion("")}, want: Version},
+		{name: "last WithVersion wins", opts: []Option{WithVersion("v2"), WithVersion("v3")}, want: "v3"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			session := connect(t, ctx, NewServer(HoldStrategy{}, tt.opts...))
+
+			info := session.InitializeResult().ServerInfo
+			if info.Version != tt.want {
+				t.Errorf("serverInfo.version = %q, want %q", info.Version, tt.want)
+			}
+			if info.Name != Name {
+				t.Errorf("serverInfo.name = %q, want %q (the version knob must not affect the name)", info.Name, Name)
+			}
+		})
+	}
+}
+
 func TestNewServer_NilStrategyDefaultsToHold(t *testing.T) {
 	ctx := context.Background()
 	session := connect(t, ctx, NewServer(nil))
