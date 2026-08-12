@@ -28,6 +28,7 @@ runnable reference agents under `examples/`.
 - [Wire encodings](#wire-encodings)
 - [Reference agents](#reference-agents)
 - [Versioning & compatibility](#versioning--compatibility)
+- [Reporting your agent's version](#reporting-your-agents-version)
 - [Related repos](#related-repos)
 - [Testing](#testing)
 - [Repository layout](#repository-layout)
@@ -176,6 +177,24 @@ built against (currently API `v1`, template `1.x`). It depends on
 [`gismo-sdk-go`](https://github.com/Axemere-LLC/gismo-sdk-go) and
 [`gismo-contracts`](https://github.com/Axemere-LLC/gismo-contracts) at pinned versions in `go.mod` —
 bump those together when upgrading to a new API major version.
+
+## Reporting your agent's version
+
+The referee reads back your agent's version from the MCP `initialize` handshake
+(`serverInfo.version`) and compares it against the `version_label` assigned to your agent when you
+registered it with the platform (e.g. `"v2"`) — keeping the two in sync matters, since it's how the
+platform attributes match results to the right rating.
+
+By default this template reports the `agent.Version` constant. Override it with `WithVersion` so
+the reported version matches your platform-assigned label instead:
+
+```go
+if err := agent.Serve(ctx, *addr, yourpkg.Strategy{}, agent.WithVersion("v2")); err != nil {
+    log.Fatalf("serve: %v", err)
+}
+```
+
+An empty string (or omitting the option) keeps the template default.
 
 ## Related repos
 
