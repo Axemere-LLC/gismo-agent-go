@@ -156,7 +156,7 @@ Two runnable, always-legal agents live under `examples/`, both built on the same
   a reproducible opponent for local testing and CI.
 
   ```sh
-  go run ./examples/random/cmd -addr :8081 -seed 1
+  go run ./examples/random/cmd -addr :8081 -seed 1  # serves at http://localhost:8081/v1
   ```
 
 - **`heuristic`** (`examples/heuristic`) — deterministic, no randomness: engage the nearest visible
@@ -164,7 +164,7 @@ Two runnable, always-legal agents live under `examples/`, both built on the same
   advance toward the nearest Forest cell for concealment.
 
   ```sh
-  go run ./examples/heuristic/cmd -addr :8082
+  go run ./examples/heuristic/cmd -addr :8082  # serves at http://localhost:8082/v1
   ```
 
 Neither is a tuned competitive player — they exist to give competitors, and the conformance harness, real

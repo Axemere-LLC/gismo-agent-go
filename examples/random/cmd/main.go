@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -28,9 +29,14 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	log.Printf("random reference agent (seed %d) listening on %s", *seed, *addr)
+	log.Printf("random reference agent (seed %d) listening on %s at /v1", *seed, *addr)
 
-	if err := agent.Serve(ctx, *addr, random.New(*seed), agent.WithVersion("v1")); err != nil {
+	handler := agent.NewHandler(random.New(*seed), agent.WithVersion("v1"))
+	mux := http.NewServeMux()
+	mux.Handle("/v1", handler)
+	mux.Handle("/v1/", handler) // avoid a 301 redirect on the trailing-slash form
+
+	if err := agent.ServeHandler(ctx, *addr, mux); err != nil {
 		log.Fatalf("serve: %v", err)
 	}
 }
