@@ -30,7 +30,7 @@ func main() {
 
 	log.Printf("random reference agent (seed %d) listening on %s", *seed, *addr)
 
-	if err := agent.Serve(ctx, *addr, random.New(*seed)); err != nil {
+	if err := agent.Serve(ctx, *addr, random.New(*seed), agent.WithVersion("v1")); err != nil {
 		log.Fatalf("serve: %v", err)
 	}
 }

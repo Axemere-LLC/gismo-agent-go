@@ -28,7 +28,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	handler := agent.NewHandler(heuristic.Strategy{})
+	handler := agent.NewHandler(heuristic.Strategy{}, agent.WithVersion("v1"))
 	if key := os.Getenv("MCP_OUTBOUND_KEY"); key != "" {
 		handler = agent.BearerAuth(key, handler)
 		log.Print("MCP_OUTBOUND_KEY set: requiring a matching Authorization: Bearer header")
