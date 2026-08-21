@@ -30,6 +30,7 @@ runnable reference agents under `examples/`.
 - [Reference agents](#reference-agents)
 - [Versioning & compatibility](#versioning--compatibility)
 - [Reporting your agent's version](#reporting-your-agents-version)
+- [Bumping your code version](#bumping-your-code-version)
 - [Deploy it](#deploy-it)
 - [Related repos](#related-repos)
 - [Testing](#testing)
@@ -224,6 +225,25 @@ platform attributes match results to the right rating.
 Each `agent.Mount`'s reported version is derived from its `Path` (`/v2` reports `"v2"`) — register
 that same string as the `version_label` when you register the generation with the platform, and the
 two stay in sync automatically. See [Serving multiple versions](#serving-multiple-versions).
+
+## Bumping your code version
+
+`scripts/bump-version.sh {major|minor|patch}` bumps this repo's own **code version** — a separate
+axis from the **agent version**/generation covered above. Code version tracks which build of your
+source is running; agent version tracks which *behavior* the platform is rating, independently, at
+its own `/vN` path. Bumping code version never adds, removes, or edits a mount — see
+`gismo-agent-hosting`'s
+[docs on serving multiple versions](https://github.com/Axemere-LLC/gismo-agent-hosting/blob/main/docs/serving-multiple-versions.md#number-generations-dont-semver-them)
+for why the two axes are deliberately decoupled.
+
+The script reads the latest `git describe --tags` (or starts at `0.1.0` if you have none yet),
+computes the next version, and rewrites `Version` in [`agent/server.go`](agent/server.go) — it
+doesn't commit, tag, or push. `gismo-agent-hosting`'s `deploy-agent` skill runs it for you as an
+optional `--bump` step (which also handles the commit and the annotated git tag), or run it directly:
+
+```bash
+scripts/bump-version.sh minor
+```
 
 ## Deploy it
 
