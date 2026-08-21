@@ -24,6 +24,7 @@ runnable reference agents under `examples/`.
 - [Quickstart](#quickstart)
 - [Auth](#auth)
 - [The `Strategy` interface](#the-strategy-interface)
+- [Serving multiple versions](#serving-multiple-versions)
 - [Observability model](#observability-model)
 - [Wire encodings](#wire-encodings)
 - [Reference agents](#reference-agents)
@@ -51,10 +52,11 @@ cd my-agent && go build ./...
 go run . -addr :8080
 ```
 
-`-addr` is the address the agent's MCP endpoint listens on. Point the referee (or the conformance
-harness) at `http://<host>:8080` for this match. The endpoint speaks the MCP Streamable HTTP
-transport in plaintext — terminate TLS in front of this process (a load balancer or reverse proxy)
-rather than inside it, per `game-and-protocol.md`'s Secure Transport Requirements.
+`-addr` is the address the agent's MCP endpoint listens on. The template mounts its `Strategy` at
+`/v1` (see [Serving multiple versions](#serving-multiple-versions)) — point the referee (or the
+conformance harness) at `http://<host>:8080/v1` for this match. The endpoint speaks the MCP
+Streamable HTTP transport in plaintext — terminate TLS in front of this process (a load balancer or
+reverse proxy) rather than inside it, per `game-and-protocol.md`'s Secure Transport Requirements.
 
 Run `go run . -h` for the full flag list.
 
@@ -81,14 +83,47 @@ type Strategy interface {
 
 This is the only method you implement. Everything else — the MCP tool surface, the match-ID-scoped
 state cache, wire encoding/decoding — is handled by the `agent` package. `main.go` wires
-`agent.HoldStrategy{}` (hold heading/speed, never fire) into `agent.Serve`; replace that one line
-with your own `Strategy` and your agent is playable.
+`agent.HoldStrategy{}` (hold heading/speed, never fire) into a `/v1` mount; replace that one
+`Strategy` value with your own and your agent is playable:
 
 ```go
-if err := agent.Serve(ctx, *addr, yourpkg.Strategy{}); err != nil {
+handler, err := agent.VersionedHandler(agent.Mount{Path: "/v1", Strategy: yourpkg.Strategy{}})
+if err != nil {
+    log.Fatalf("versioned handler: %v", err)
+}
+if err := agent.ServeHandler(ctx, *addr, handler); err != nil {
     log.Fatalf("serve: %v", err)
 }
 ```
+
+## Serving multiple versions
+
+Gismo has two independent versioning axes: this repo's **code version** (semver, `go.mod`, git tags)
+and your agent's **generation** (a flat integer, one immutable URL path `/vN`, rated independently by
+the platform from the moment it's registered). A code release doesn't create a new generation — only
+adding another `agent.Mount` does.
+
+`agent.VersionedHandler` mounts one or more immutable generations, each with its own `Strategy` and
+its own isolated match-state cache, in a single process:
+
+```go
+handler, err := agent.VersionedHandler(
+    agent.Mount{Path: "/v1", Strategy: v1.Strategy{}}, // frozen: never change what /v1 serves
+    agent.Mount{Path: "/v2", Strategy: v2.Strategy{}}, // your current, still-evolving generation
+)
+```
+
+Register `/v1` and `/v2` as separate agent versions with the platform, each with its own
+`version_label` (`"v1"`, `"v2"`); the referee compares that label against `serverInfo.version` from
+each mount's MCP `initialize` handshake, which `VersionedHandler` derives automatically from the
+mount's path (`"/v3"` reports `"v3"`) — there's no separate version string to keep in sync by hand.
+Once a generation is rated, treat its `Strategy` as frozen: fix a bug or improve behavior by adding a
+new `Mount` at a new path, not by editing the old one in place — see
+[Fixture drift lock](#testing) for a test that catches an accidental edit to a shared helper (like
+`agent/legality.go`) silently changing an already-shipped generation's behavior.
+
+`agent.VersionedHandler` returns a bare `http.Handler` with no auth applied — wrap it yourself, as
+`main.go` does with `agent.BearerAuth`, before passing it to `agent.ServeHandler`.
 
 ## Observability model
 
@@ -186,16 +221,9 @@ The referee reads back your agent's version from the MCP `initialize` handshake
 registered it with the platform (e.g. `"v2"`) — keeping the two in sync matters, since it's how the
 platform attributes match results to the right rating.
 
-By default this template reports the `agent.Version` constant. Override it with `WithVersion` so
-the reported version matches your platform-assigned label instead:
-
-```go
-if err := agent.Serve(ctx, *addr, yourpkg.Strategy{}, agent.WithVersion("v2")); err != nil {
-    log.Fatalf("serve: %v", err)
-}
-```
-
-An empty string (or omitting the option) keeps the template default.
+Each `agent.Mount`'s reported version is derived from its `Path` (`/v2` reports `"v2"`) — register
+that same string as the `version_label` when you register the generation with the platform, and the
+two stay in sync automatically. See [Serving multiple versions](#serving-multiple-versions).
 
 ## Deploy it
 
@@ -220,22 +248,32 @@ for the full path from this repo to a registered, playable agent.
 go build ./... && go vet ./... && go test ./...
 ```
 
-- `agent/*_test.go` — the state cache, the MCP tool surface, and the shared legality helpers.
+- `agent/*_test.go` — the state cache, the MCP tool surface, `VersionedHandler`'s routing/isolation
+  behavior, and the shared legality helpers.
 - `examples/{random,heuristic}/strategy_test.go` — table-driven tests asserting every emitted order is
   legal, plus each agent's own decision logic (nearest-enemy targeting, cover-seeking, determinism).
 - `integration/conformance_test.go` — drives `gismo-contracts`' conformance harness against real,
   listening `gismo-agent-go` MCP servers over real HTTP transport, for the unmodified template and both
   reference agents.
+- `agent/fixtures_test.go` (`TestFixtures`) — the **fixture drift lock**: replays the scenario corpus
+  in `fixtures/scenarios.json` against each mounted generation's `Strategy` and compares the resulting
+  orders byte-for-byte against `fixtures/expected/*.json`. This exists to catch the hazard from
+  [Serving multiple versions](#serving-multiple-versions): once a generation is rated, editing a
+  shared helper it depends on (e.g. `agent/legality.go`) can silently change what an already-shipped
+  `/vN` plays, without touching that generation's own code. If a drift is intentional — you've cut a
+  new generation and the old one is meant to stay exactly as it was, or you're updating an unreleased
+  generation on purpose — regenerate the goldens with `go test ./agent/... -run TestFixtures -update`.
 
 ## Repository layout
 
 ```
 .
-├── main.go                    # the template: agent.Serve + agent.HoldStrategy{}
-├── agent/                     # MCP server, state cache, Strategy interface, legality helpers
+├── main.go                    # the template: agent.VersionedHandler({"/v1", agent.HoldStrategy{}})
+├── agent/                     # MCP server, state cache, Strategy interface, VersionedHandler, legality helpers
 ├── examples/
 │   ├── random/                # random reference agent (package random) + cmd/main.go
 │   └── heuristic/             # heuristic reference agent (package heuristic) + cmd/main.go
+├── fixtures/                   # scenario corpus + per-generation golden orders (the drift lock)
 └── integration/                # conformance-harness integration test
 ```
 

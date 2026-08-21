@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -29,14 +28,21 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	handler, err := agent.VersionedHandler(agent.Mount{Path: "/v1", Strategy: random.New(*seed)})
+	if err != nil {
+		log.Fatalf("versioned handler: %v", err)
+	}
+
+	if key := os.Getenv("MCP_OUTBOUND_KEY"); key != "" {
+		handler = agent.BearerAuth(key, handler)
+		log.Print("MCP_OUTBOUND_KEY set: requiring a matching Authorization: Bearer header")
+	} else {
+		log.Print("MCP_OUTBOUND_KEY not set: endpoint is unauthenticated")
+	}
+
 	log.Printf("random reference agent (seed %d) listening on %s at /v1", *seed, *addr)
 
-	handler := agent.NewHandler(random.New(*seed), agent.WithVersion("v1"))
-	mux := http.NewServeMux()
-	mux.Handle("/v1", handler)
-	mux.Handle("/v1/", handler) // avoid a 301 redirect on the trailing-slash form
-
-	if err := agent.ServeHandler(ctx, *addr, mux); err != nil {
+	if err := agent.ServeHandler(ctx, *addr, handler); err != nil {
 		log.Fatalf("serve: %v", err)
 	}
 }
